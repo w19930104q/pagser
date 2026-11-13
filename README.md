@@ -12,6 +12,7 @@
 - [Features](#features)
 - [Docs](#docs)
 - [Usage](#usage)
+- [Table Usage](#table-usage)
 - [Configuration](#configuration)
 - [Struct Tag Grammar](#struct-tag-grammar)
 - [Functions](#functions)
@@ -170,6 +171,54 @@ Page data json:
 -------------
 
 ```
+
+## Table Usage
+
+`ParseTable` extracts an HTML table with multi-level headers and merged
+cells into a slice of structs. Each `thead` level composes a column path
+joined by `/`, and each `tbody` row maps to one struct item. Fields bind a
+column path with the same `[path]->[function]` tag grammar, type conversion,
+custom functions and `CastError` semantics as the `Parse` series.
+
+```html
+<table id="price">
+	<thead>
+		<tr><th rowspan="2">产品</th><th colspan="2">销量</th></tr>
+		<tr><th>线上</th><th>线下</th></tr>
+	</thead>
+	<tbody>
+		<tr><td>手机</td><td>10</td><td>20</td></tr>
+		<tr><td>平板</td><td>5</td><td>8</td></tr>
+	</tbody>
+</table>
+```
+
+```golang
+type RowData struct {
+	Name    string `pagser:"产品"`
+	Online  int    `pagser:"销量/线上"`
+	Offline int    `pagser:"销量/线下"`
+}
+
+var rows []RowData
+err := pagser.New().ParseTable(&rows, html, "#price")
+//rows: [{手机 10 20} {平板 5 8}]
+```
+
+Rules:
+
+* `rowspan`/`colspan` must be positive integers and are expanded into the
+  grid; covered positions share the source cell value and their `Row`/`Col`
+  point back to the source cell coordinates (see `ExtractTable`).
+* Spans must not cross a row group (`thead`/`tbody`) boundary.
+* Holes left by ragged rows are kept as empty cells; nested tables inside a
+  cell never leak into the outer table.
+* Duplicate column paths, invalid spans and cross-group spans return the
+  recognizable errors `TableDuplicateColumnError`, `TableSpanError` and
+  `TableRowGroupSpanError` (with row/col), so `errors.As` can tell them apart.
+
+Related methods: `ParseTable`, `ParseTableReader`, `ParseTableDocument`,
+`ParseTableSelection` and the raw grid extractor `ExtractTable`.
 
 ## Configuration
 
